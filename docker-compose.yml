@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: lich-postgres
+    environment:
+      POSTGRES_DB: lich
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina la variable DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - lich-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  lich-data:
