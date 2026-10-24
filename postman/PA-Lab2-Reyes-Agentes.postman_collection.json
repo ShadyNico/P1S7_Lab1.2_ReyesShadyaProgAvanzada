@@ -1,0 +1,499 @@
+{
+  "info": {
+    "name": "PA-Lab2-Reyes-Agentes",
+    "description": "Laboratorio 2 - API REST de agentes (Spring Boot + PostgreSQL)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01-Casos exitosos",
+      "item": [
+        {
+          "name": "Crear agente (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{agentName}}\",\n  \"ip\": \"192.168.1.50\",\n  \"os\": \"Windows 11\",\n  \"username\": \"operador\",\n  \"cpuUsage\": 35.5,\n  \"estado\": \"ONLINE\",\n  \"activo\": true,\n  \"lastConnection\": \"2026-10-20T10:30:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"agentName\", \"Agente-\" + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Cabecera Location apunta al recurso\", () => {",
+                  "    const location = pm.response.headers.get(\"Location\");",
+                  "    pm.expect(location).to.include(\"/api/agents/\" + pm.response.json().id);",
+                  "});",
+                  "pm.test(\"Body con id y auditoría\", () => {",
+                  "    const a = pm.response.json();",
+                  "    pm.expect(a.id).to.be.a(\"number\");",
+                  "    pm.expect(a.name).to.eql(pm.environment.get(\"agentName\"));",
+                  "    pm.expect(a.cpuUsage).to.eql(35.5);",
+                  "    pm.expect(a.estado).to.eql(\"ONLINE\");",
+                  "    pm.expect(a.activo).to.eql(true);",
+                  "    pm.expect(a.creadoEn).to.be.a(\"string\");",
+                  "    pm.expect(a.actualizadoEn).to.be.a(\"string\");",
+                  "});",
+                  "pm.environment.set(\"agentId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar paginado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents?page=0&size=5&sort=name,asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Respuesta con content y page\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content).to.be.an(\"array\");",
+                  "    pm.expect(body.content.length).to.be.at.most(5);",
+                  "    pm.expect(body.page.size).to.eql(5);",
+                  "    pm.expect(body.page.number).to.eql(0);",
+                  "    pm.expect(body.page).to.have.property(\"totalElements\");",
+                  "    pm.expect(body.page).to.have.property(\"totalPages\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener por id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents/{{agentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve el agente pedido\", () => {",
+                  "    pm.expect(pm.response.json().id).to.eql(Number(pm.environment.get(\"agentId\")));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar por nombre (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents/buscar?nombre={{searchTerm}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// En minúsculas para comprobar que la búsqueda ignora mayúsculas",
+                  "pm.environment.set(\"searchTerm\", pm.environment.get(\"agentName\").toLowerCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Encuentra el agente sin importar mayúsculas\", () => {",
+                  "    const ids = pm.response.json().content.map(a => a.id);",
+                  "    pm.expect(ids).to.include(Number(pm.environment.get(\"agentId\")));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar agente (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents/{{agentId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{agentName}}-editado\",\n  \"ip\": \"192.168.1.50\",\n  \"os\": \"Windows 11\",\n  \"username\": \"operador\",\n  \"cpuUsage\": 72.25,\n  \"estado\": \"MANTENIMIENTO\",\n  \"activo\": false,\n  \"lastConnection\": \"2026-10-20T10:30:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Datos actualizados\", () => {",
+                  "    const a = pm.response.json();",
+                  "    pm.expect(a.name).to.eql(pm.environment.get(\"agentName\") + \"-editado\");",
+                  "    pm.expect(a.cpuUsage).to.eql(72.25);",
+                  "    pm.expect(a.estado).to.eql(\"MANTENIMIENTO\");",
+                  "    pm.expect(a.activo).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar agente (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents/{{agentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02-Casos negativos",
+      "item": [
+        {
+          "name": "400 - Validación de campos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"ip\": \"10.0.0.1\",\n  \"os\": \"Linux\",\n  \"username\": \"\",\n  \"cpuUsage\": 150,\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});",
+                  "pm.test(\"Indica los campos inválidos en errors\", () => {",
+                  "    const errores = pm.response.json().errors.join(\" \");",
+                  "    pm.expect(errores).to.include(\"name\");",
+                  "    pm.expect(errores).to.include(\"cpuUsage\");",
+                  "    pm.expect(errores).to.include(\"estado\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 - Enum inválido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Agente-enum-{{$timestamp}}\",\n  \"ip\": \"192.168.1.50\",\n  \"os\": \"Windows 11\",\n  \"username\": \"operador\",\n  \"cpuUsage\": 35.5,\n  \"estado\": \"VOLANDO\",\n  \"activo\": true,\n  \"lastConnection\": \"2026-10-20T10:30:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 - Id no numérico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents/abc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});",
+                  "pm.test(\"Menciona el parámetro id\", () => pm.expect(pm.response.json().message).to.include(\"id\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404 - Agente inexistente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/agents/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "405 - PATCH no permitido",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"parche\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 405\", () => pm.response.to.have.status(405));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});",
+                  "pm.test(\"Cabecera Allow presente\", () => pm.expect(pm.response.headers.get(\"Allow\")).to.be.a(\"string\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "409 - Nombre duplicado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{dupName}}\",\n  \"ip\": \"192.168.1.50\",\n  \"os\": \"Windows 11\",\n  \"username\": \"operador\",\n  \"cpuUsage\": 35.5,\n  \"estado\": \"ONLINE\",\n  \"activo\": true,\n  \"lastConnection\": \"2026-10-20T10:30:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Crea primero un agente con el nombre que luego se repetirá",
+                  "const dupName = \"Agente-dup-\" + Date.now();",
+                  "pm.environment.set(\"dupName\", dupName);",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get(\"baseUrl\") + \"/api/agents\",",
+                  "    method: \"POST\",",
+                  "    header: { \"Content-Type\": \"application/json\" },",
+                  "    body: { mode: \"raw\", raw: JSON.stringify({",
+                  "        name: dupName, ip: \"10.0.0.9\", os: \"Linux\", username: \"dup\",",
+                  "        cpuUsage: 10, estado: \"ONLINE\", activo: true",
+                  "    }) }",
+                  "}, (err, res) => {",
+                  "    if (!err && res.code === 201) pm.environment.set(\"dupId\", res.json().id);",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});",
+                  "// Limpieza: borra el agente creado en el pre-request",
+                  "pm.sendRequest({",
+                  "    url: pm.environment.get(\"baseUrl\") + \"/api/agents/\" + pm.environment.get(\"dupId\"),",
+                  "    method: \"DELETE\"",
+                  "}, () => {});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "422 - Regla de negocio (OFFLINE activo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/agents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Agente-422-{{$timestamp}}\",\n  \"ip\": \"192.168.1.50\",\n  \"os\": \"Windows 11\",\n  \"username\": \"operador\",\n  \"cpuUsage\": 35.5,\n  \"estado\": \"OFFLINE\",\n  \"activo\": true,\n  \"lastConnection\": \"2026-10-20T10:30:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Formato ErrorResponse\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\", \"errors\");",
+                  "    pm.expect(e.status).to.eql(pm.response.code);",
+                  "    pm.expect(e.path).to.include(\"/api/agents\");",
+                  "});",
+                  "pm.test(\"Explica la regla incumplida\", () => pm.expect(pm.response.json().message).to.include(\"OFFLINE\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
